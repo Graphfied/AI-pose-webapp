@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Posture Correction App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <style>
+        /* Global variables and dark mode support */
+        :root {
+            --primary-color: #0059ff;
+            --secondary-color: #ff9100;
+            --background-color: #f0f0f0;
+            --text-color: #333;
+            --feedback-bg: rgba(0, 89, 255, 0.39);
+            --card-bg: #fff;
+            --border-radius: 8px;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+
+        body.dark {
+            --primary-color: #333;
+            --secondary-color: #ffa500;
+            --background-color: #222;
+            --text-color: #eee;
+            --feedback-bg: rgba(255, 0, 0, 0.5);
+            --card-bg: #333;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+        }
+
+        .app-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            padding: 20px;
+        }
+
+        /* Posture guide section */
+        .posture-guide {
+            flex: 1 1 300px;
+            max-width: 320px;
+            background-color: var(--card-bg);
+            padding: 15px;
+            margin: 10px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .posture-guide h2 {
+            margin-top: 0;
+        }
+
+        .posture-guide ul {
+            list-style: inside disc;
+            padding-left: 20px;
+        }
+
+        .posture-guide img {
+            width: 100%;
+            height: auto;
+            margin: 10px 0;
+            border-radius: var(--border-radius);
+        }
+
+        /* Video and feedback section */
+        .video-section {
+            flex: 2 1 500px;
+            position: relative;
+            margin: 10px;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            background: black;
+        }
+
+        .input_video,
+        .output_canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .output_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .feedback {
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--feedback-bg);
+            padding: 10px 20px;
+            border-radius: var(--border-radius);
+            font-size: 1.2em;
+            text-align: center;
+            z-index: 100;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        /* Controls */
+        .controls {
+            margin: 10px;
+            text-align: center;
+        }
+
+        .controls button {
+            margin: 5px;
+            padding: 10px 15px;
+            border: none;
+            border-radius: var(--border-radius);
+            background-color: var(--primary-color);
+            color: white;
+            cursor: pointer;
+        }
+
+        .controls button:hover {
+            opacity: 0.8;
+        }
+
+        /* Dashboard section */
+        .dashboard {
+            flex: 1 1 300px;
+            max-width: 320px;
+            margin: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .social-links {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .social-links h2 {
+            color: var(--secondary-color);
+        }
+
+        .fa {
+            padding: 15px;
+            font-size: 24px;
+            width: 45px;
+            text-align: center;
+            text-decoration: none;
+            margin: 5px;
+            border-radius: var(--border-radius);
+            transition: opacity 0.3s;
+        }
+
+        .fa:hover {
+            opacity: 0.8;
+        }
+
+        .fa-linkedin {
+            background: #0077B5;
+            color: white;
+        }
+
+        .fa-github {
+            background: #333;
+            color: white;
+        }
+
+        .graph-container {
+            width: 100%;
+            background-color: var(--card-bg);
+            padding: 10px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #postureGraphCanvas {
+            width: 100%;
+            height: 200px;
+        }
+
+        /* Modal for Tutorial */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 200;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: var(--border-radius);
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .feedback {
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Advanced Posture Correction App</h1>
+    </header>
+    <main class="app-container">
+        <section class="posture-guide">
+            <h2>Improve Your Posture</h2>
+            <ul>
+                <li>Stand up straight and tall.</li>
+                <li>Keep your shoulders back.</li>
+                <li>Pull your stomach in.</li>
+                <li>Keep your head level.</li>
+                <li>Feet shoulder-width apart.</li>
+            </ul>
+            <img src="gg.jpg" alt="Posture Guide">
+            <p>Follow this guide for correct posture.</p>
+        </section>
+        <section class="video-section">
+            <div class="video-container">
+                <video class="input_video" autoplay playsinline></video>
+                <canvas class="output_canvas"></canvas>
+            </div>
+            <div class="feedback" id="feedback-container">Initializing...</div>
+            <div class="controls">
+                <button id="togglePause">Pause</button>
+                <button id="snapshot">Snapshot</button>
+                <button id="calibrate">Calibrate</button>
+                <button id="tutorial">Tutorial</button>
+                <button id="darkModeToggle">Toggle Dark Mode</button>
+            </div>
+        </section>
+        <aside class="dashboard">
+            <div class="social-links">
+                <h2>My Socials</h2>
+                <a href="https://www.linkedin.com/in/fahadhghouri/" class="fa fa-linkedin"></a>
+                <a href="https://github.com/Graphfied" class="fa fa-github"></a>
+            </div>
+            <div class="graph-container">
+                <canvas id="postureGraphCanvas"></canvas>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Tutorial Modal -->
+    <div id="tutorialModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeModal">&times;</span>
+            <h2>Tutorial</h2>
+            <p>Welcome to the Advanced Posture Correction App! Here are some tips:</p>
+            <ul>
+                <li>Maintain a straight posture while standing.</li>
+                <li>The app provides visual and audio feedback if your posture deviates.</li>
+                <li>Use the Calibrate button to adjust sensitivity.</li>
+                <li>You can pause/resume tracking and take snapshots.</li>
+                <li>Toggle dark mode for a different theme.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const videoElement = document.getElementsByClassName('input_video')[0];
+        const canvasElement = document.getElementsByClassName('output_canvas')[0];
+        const canvasCtx = canvasElement.getContext('2d');
+        const feedbackContainer = document.getElementById('feedback-container');
+        const graphCanvas = document.getElementById('postureGraphCanvas');
+        const graphCtx = graphCanvas.getContext('2d');
+
+        let postureHistory = [];
+        let isPaused = false;
+        let customThresholdMultiplier = 0.1;
+        let lastAudioAlertTime = 0;
+
+        // Process MediaPipe results
+        function onResults(results) {
+            if (isPaused) return;
+
+            // Adjust canvas size to match video dimensions
+            canvasElement.width = videoElement.videoWidth;
+            canvasElement.height = videoElement.videoHeight;
+
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            if (results.poseLandmarks) {
+                drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 4 });
+                drawLandmarks(canvasCtx, results.poseLandmarks, { color: '#FF0000', lineWidth: 2 });
+                analyzePosture(results.poseLandmarks);
+            }
+            canvasCtx.restore();
+        }
+
+        // Analyze posture and compute a score (0-100)
+        function analyzePosture(poseLandmarks) {
+            const leftShoulder = poseLandmarks[11];
+            const rightShoulder = poseLandmarks[12];
+            const leftHip = poseLandmarks[23];
+            const rightHip = poseLandmarks[24];
+            const nose = poseLandmarks[0];
+
+            let feedback = '';
+            let score = 100;
+
+            if (leftShoulder && rightShoulder && leftHip && rightHip && nose) {
+                const shoulderDistance = Math.abs(leftShoulder.x - rightShoulder.x);
+                const dynamicThreshold = shoulderDistance * customThresholdMultiplier;
+
+                // Shoulder alignment check
+                const shoulderLevelDiff = Math.abs(leftShoulder.y - rightShoulder.y);
+                if (shoulderLevelDiff > dynamicThreshold) {
+                    feedback += 'Level your shoulders. ';
+                    score -= 10;
+                }
+
+                // Hip alignment check
+                const hipLevelDiff = Math.abs(leftHip.y - rightHip.y);
+                if (hipLevelDiff > dynamicThreshold) {
+                    feedback += 'Level your hips. ';
+                    score -= 10;
+                }
+
+                // Head alignment check: compare nose position to average shoulders
+                const avgShoulderX = (leftShoulder.x + rightShoulder.x) / 2;
+                if (Math.abs(nose.x - avgShoulderX) > dynamicThreshold) {
+                    feedback += 'Align your head with your shoulders. ';
+                    score -= 5;
+                }
+            } else {
+                feedback = 'Unable to detect landmarks properly.';
+                score = 0;
+            }
+
+            feedbackContainer.innerText = feedback || 'Good posture!';
+            updateGraph(score);
+            triggerAudioAlert(score);
+        }
+
+        // Trigger audio feedback using Web Speech API (throttled)
+        function triggerAudioAlert(score) {
+            const now = Date.now();
+            if (score < 100 && now - lastAudioAlertTime > 10000) {
+                const utterance = new SpeechSynthesisUtterance('Please correct your posture');
+                speechSynthesis.speak(utterance);
+                lastAudioAlertTime = now;
+            }
+        }
+
+        // Draw connectors between landmarks
+        function drawConnectors(ctx, landmarks, connections, { color, lineWidth }) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            connections.forEach(([startIdx, endIdx]) => {
+                const startLandmark = landmarks[startIdx];
+                const endLandmark = landmarks[endIdx];
+                if (startLandmark && endLandmark) {
+                    ctx.beginPath();
+                    ctx.moveTo(startLandmark.x * canvasElement.width, startLandmark.y * canvasElement.height);
+                    ctx.lineTo(endLandmark.x * canvasElement.width, endLandmark.y * canvasElement.height);
+                    ctx.stroke();
+                }
+            });
+        }
+
+        // Draw individual landmarks
+        function drawLandmarks(ctx, landmarks, { color, lineWidth }) {
+            ctx.fillStyle = color;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            landmarks.forEach(landmark => {
+                ctx.beginPath();
+                ctx.arc(landmark.x * canvasElement.width, landmark.y * canvasElement.height, lineWidth, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+        }
+
+        // Update and draw the posture score graph
+        function updateGraph(score) {
+            postureHistory.push(score);
+            if (postureHistory.length > 100) {
+                postureHistory.shift();
+            }
+            drawGraph();
+            // Persist history to local storage
+            localStorage.setItem('postureHistory', JSON.stringify(postureHistory));
+        }
+
+        function drawGraph() {
+            graphCanvas.width = graphCanvas.offsetWidth;
+            graphCanvas.height = graphCanvas.offsetHeight;
+            graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+
+            // Draw grid lines
+            graphCtx.strokeStyle = '#ddd';
+            graphCtx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) {
+                let y = (graphCanvas.height / 10) * i;
+                graphCtx.beginPath();
+                graphCtx.moveTo(0, y);
+                graphCtx.lineTo(graphCanvas.width, y);
+                graphCtx.stroke();
+            }
+
+            // Plot posture score line
+            graphCtx.strokeStyle = '#00AAFF';
+            graphCtx.lineWidth = 2;
+            graphCtx.beginPath();
+            const step = graphCanvas.width / (postureHistory.length - 1);
+            postureHistory.forEach((score, index) => {
+                let x = index * step;
+                let y = graphCanvas.height - (score / 100) * graphCanvas.height;
+                if (index === 0) {
+                    graphCtx.moveTo(x, y);
+                } else {
+                    graphCtx.lineTo(x, y);
+                }
+            });
+            graphCtx.stroke();
+        }
+
+        // Retrieve persisted posture history on load
+        window.addEventListener('load', () => {
+            const storedHistory = localStorage.getItem('postureHistory');
+            if (storedHistory) {
+                postureHistory = JSON.parse(storedHistory);
+                drawGraph();
+            }
+        });
+
+        // Initialize MediaPipe Pose
+        const pose = new Pose({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+        });
+        pose.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            enableSegmentation: false,
+            smoothSegmentation: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        pose.onResults(onResults);
+
+        // Start the camera
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                if (!isPaused) {
+                    try {
+                        await pose.send({ image: videoElement });
+                    } catch (error) {
+                        console.error("Error processing frame:", error);
+                    }
+                }
+            },
+            width: 1280,
+            height: 720
+        });
+        camera.start();
+
+        // Control buttons
+        document.getElementById('togglePause').addEventListener('click', () => {
+            isPaused = !isPaused;
+            document.getElementById('togglePause').innerText = isPaused ? 'Resume' : 'Pause';
+        });
+
+        document.getElementById('snapshot').addEventListener('click', () => {
+            const snapshotUrl = canvasElement.toDataURL('image/png');
+            window.open(snapshotUrl);
+        });
+
+        document.getElementById('calibrate').addEventListener('click', () => {
+            let newMultiplier = prompt("Enter new threshold multiplier (current: " + customThresholdMultiplier + ")", customThresholdMultiplier);
+            if (newMultiplier !== null && !isNaN(newMultiplier)) {
+                customThresholdMultiplier = parseFloat(newMultiplier);
+            }
+        });
+
+        // Tutorial modal functionality
+        const tutorialModal = document.getElementById('tutorialModal');
+        document.getElementById('tutorial').addEventListener('click', () => {
+            tutorialModal.style.display = "block";
+        });
+        document.getElementById('closeModal').addEventListener('click', () => {
+            tutorialModal.style.display = "none";
+        });
+        window.addEventListener('click', (event) => {
+            if (event.target === tutorialModal) {
+                tutorialModal.style.display = "none";
+            }
+        });
+
+        // Dark mode toggle
+        document.getElementById('darkModeToggle').addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+        });
+    </script>
+</body>
+
+</html>
